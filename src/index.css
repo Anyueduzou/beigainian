@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-brand-bg text-brand-ink antialiased;
+    font-family: system-ui, -apple-system, 'Segoe UI', 'PingFang SC',
+      'Microsoft YaHei', sans-serif;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
