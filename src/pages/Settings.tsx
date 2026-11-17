@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import { getSettings, updateSettings } from '../db'
 import {
+  appendBackup,
   buildBackup,
   clearAllData,
   downloadJson,
@@ -20,6 +21,7 @@ export default function Settings() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<Message | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const appendFileRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -108,6 +110,27 @@ export default function Settings() {
         ok: true,
         text: `导入完成：${summary.cards} 张卡片、${summary.reviewLogs} 条复习记录`,
       })
+    } catch (err) {
+      setMessage({ ok: false, text: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleAppendFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    const confirmed = window.confirm(
+      '这会将新卡片追加到现有题库中，不影响已有数据，确定继续吗？',
+    )
+    if (!confirmed) return
+
+    setBusy(true)
+    try {
+      const summary = await appendBackup(file)
+      setMessage({ ok: true, text: `追加完成：新增了 ${summary.cards} 张卡片` })
     } catch (err) {
       setMessage({ ok: false, text: err instanceof Error ? err.message : String(err) })
     } finally {
@@ -210,6 +233,22 @@ export default function Settings() {
             type="file"
             accept=".json,application/json"
             onChange={(event) => void handleImportFile(event)}
+            className="hidden"
+          />
+
+          <button
+            type="button"
+            onClick={() => appendFileRef.current?.click()}
+            disabled={busy}
+            className="w-full rounded-lg border border-brand-line py-2.5 text-xs font-medium text-brand-dark disabled:opacity-50"
+          >
+            追加导入 JSON（保留原数据）
+          </button>
+          <input
+            ref={appendFileRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => void handleAppendFile(event)}
             className="hidden"
           />
 

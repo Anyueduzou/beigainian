@@ -256,6 +256,51 @@ export async function importBackup(file: File): Promise<ImportSummary> {
   return { cards: cards.length, reviewLogs: reviewLogs.length }
 }
 
+/** 追加导入 = 只新增卡片，保留现有数据（旧 ID 丢弃，复习进度重置） */
+export async function appendBackup(file: File): Promise<{ cards: number }> {
+  const text = await file.text()
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error('文件不是合法的 JSON，请确认选的是 .json 备份文件')
+  }
+
+  const root = asRecord(parsed)
+  if (!Array.isArray(root.cards)) {
+    throw new Error('备份文件缺少 cards 数组，可能不是本应用导出的备份')
+  }
+
+  const now = Date.now()
+  // 不写 id 字段，交给数据库自增分配，避免与现有卡片主键冲突
+  const cards = root.cards.map((item, index) => {
+    const card = normalizeCard(item, index, now)
+    return {
+      term: card.term,
+      answer: card.answer,
+      keyPoints: card.keyPoints,
+      explanation: card.explanation,
+      example: card.example,
+      tags: card.tags,
+      difficulty: card.difficulty,
+      source: card.source,
+      createdAt: now,
+      updatedAt: now,
+      dueAt: now,
+      interval: 0,
+      easeFactor: 2.5,
+      repetitions: 0,
+      lapses: 0,
+      lastReviewedAt: null,
+    } satisfies Omit<Card, 'id'>
+  })
+
+  if (cards.length > 0) await db.cards.bulkAdd(cards)
+
+  return { cards: cards.length }
+}
+
 /** 清空卡片、复习记录、设置（设置会回到默认值 20） */
 export async function clearAllData(): Promise<void> {
   await db.transaction('rw', db.cards, db.reviewLogs, db.settings, async () => {
